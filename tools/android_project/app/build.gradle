@@ -1,0 +1,53 @@
+apply plugin: 'com.android.application'
+
+android {
+    signingConfigs {
+        release {
+            storePassword 'nicoboy-secure-pass'
+            keyAlias 'nicoboy'
+            keyPassword 'nicoboy-secure-pass'
+            storeFile file('../nicoboy-signing-store')
+        }
+    }
+    compileSdkVersion 33
+    ndkVersion '22.1.7171670'
+
+    defaultConfig {
+        signingConfig signingConfigs.release
+        applicationId = 'com.nico.nicoboy'
+        minSdkVersion 24
+        targetSdkVersion 33
+        versionCode 32
+        versionName "NicoBoy-1.0"
+        setProperty("archivesBaseName", applicationId + "-v" + versionCode)
+        externalNativeBuild {
+            cmake {
+                arguments '-DANDROID_STL=c++_static', '-DANDROID=1', '-DNDK_DEBUG=0', '-DCMAKE_BUILD_TYPE=RELWITHDEBINFO', "-DANDROID_ARM_NEON=TRUE"
+                targets "NicoBoy"
+            }
+        }
+        ndk {
+            abiFilters "arm64-v8a", "x86", "armeabi-v7a", "x86_64"
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'),
+                    'proguard-rules.pro'
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            version '3.18.1'
+            path '../../../CMakeLists.txt'
+        }
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'androidx.browser:browser:1.5.0'
+}
