@@ -1,35 +1,30 @@
 name: Build NicoBoy APK
-on:
-  push:
-  workflow_dispatch:
+on: [push,pull_request]
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Ninja
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2.3.1 
+      - name: Setup Ninja 
         uses: seanmiddleditch/gha-setup-ninja@master
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v3
         with:
-          distribution: temurin
+          distribution: 'temurin' # See 'Supported distributions' for available options
           java-version: '17'
-      - name: Install SDK parts
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2.0.10
+      - name: Build Release apk
         run: |
-          export SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          ls "$ANDROID_HOME"
-          yes | "$SDKM" --licenses > /dev/null || true
-          "$SDKM" "platforms;android-33" "build-tools;33.0.2" "ndk;22.1.7171670" "cmake;3.18.1"
-      - name: Build APK
-        run: |
-          cd tools/android_project
-          rm -f local.properties
-          chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon --stacktrace
-          ls -la app/build/outputs/apk/release/
-      - name: Upload APK
+          cd tools/android_project/
+          ./gradlew assembleRelease
+          ls app/build/outputs/apk/release/
+      - name: GH Release 🚀
+        # You may pin to the exact commit or the version.
         uses: actions/upload-artifact@v4
         with:
-          name: NicoBoy-APK
-          path: tools/android_project/app/build/outputs/apk/release/*.apk
+           name: NicoBoy-APK
+           path: tools/android_project/app/build/outputs/apk/release/*.apk
+        
+ 
