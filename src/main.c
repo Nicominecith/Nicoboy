@@ -37,6 +37,8 @@
 #include "cloud.h"
 #include "mutex.h"
 #include "res.h"
+#include "nicoboy_logo.h"
+#include "nicoboy_bg.h"
 #include "sokol_app.h"
 #include "sokol_audio.h"
 #include "sokol_gfx.h"
@@ -5152,8 +5154,129 @@ bool se_string_contains_string_case_insensitive(char *canidate, char *search) {
   }
   return false;
 }
+
+// ---- NicoBoy: Glas-Design, Itachi-Hintergrund, Sharingan ----
+#define NB_COL(r,g,b,a) ((ImU32)((((unsigned)(a))<<24)|(((unsigned)(b))<<16)|(((unsigned)(g))<<8)|((unsigned)(r))))
+static uint8_t* nb_logo_data=NULL;
+static int nb_logo_w=0, nb_logo_h=0;
+static sg_image nb_bg_img;
+static bool nb_bg_init=false;
+static int nb_bg_w=0, nb_bg_h=0;
+
+// Rotierendes Sharingan (alpha 0..1)
+static void nb_draw_sharingan(ImDrawList* dl, ImVec2 c, float R, float angle, float alpha){
+  int a255=(int)(alpha*255.f);
+  ImDrawList_AddCircleFilled(dl,c,R+R*0.35f,NB_COL(255,40,50,(int)(alpha*40.f)),40);   // Glut
+  ImDrawList_AddCircleFilled(dl,c,R+R*0.07f,NB_COL(8,8,10,a255),40);                  // aeusserer Ring
+  ImDrawList_AddCircleFilled(dl,c,R,NB_COL(214,38,57,a255),40);                        // rote Iris
+  ImDrawList_AddCircle(dl,c,R*0.62f,NB_COL(10,8,10,a255),40,R*0.07f>1.2f?R*0.07f:1.2f); // innerer Ring
+  ImDrawList_AddCircleFilled(dl,c,R*0.20f,NB_COL(8,8,10,a255),24);                     // Pupille
+  for(int i=0;i<3;++i){
+    float ang=angle+i*2.0943951f;
+    ImVec2 p={c.x+cosf(ang)*R*0.62f,c.y+sinf(ang)*R*0.62f};
+    ImDrawList_AddCircleFilled(dl,p,R*0.17f,NB_COL(8,8,10,a255),20);                   // Tomoe-Kopf
+    ImVec2 t={p.x+(-sinf(ang))*R*0.20f,p.y+cosf(ang)*R*0.20f};
+    ImDrawList_AddCircleFilled(dl,t,R*0.09f,NB_COL(8,8,10,a255),14);                   // Tomoe-Schweif
+  }
+}
+// Glas-Karte: Milchglas-Fuellung, Glanzkante oben, heller Rand
+static void nb_glass_card(ImDrawList* dl, ImVec2 a, ImVec2 b, float r){
+  ImDrawList_AddRectFilled(dl,a,b,NB_COL(255,255,255,22),r,ImDrawCornerFlags_All);
+  ImDrawList_AddRectFilled(dl,a,(ImVec2){b.x,a.y+(b.y-a.y)*0.45f},NB_COL(255,255,255,18),r,ImDrawCornerFlags_Top);
+  ImDrawList_AddRect(dl,a,b,NB_COL(255,255,255,80),r,ImDrawCornerFlags_All,1.5f);
+}
+// Hintergrund (nur Startbildschirm ohne Spiel): Itachi + fliegende Raben
+static void nb_draw_backdrop(void){
+  if(!nb_bg_init){
+    nb_bg_init=true;
+    int c=0;
+    uint8_t* d=stbi_load_from_memory(nicoboy_bg_jpg,(int)nicoboy_bg_jpg_len,&nb_bg_w,&nb_bg_h,&c,4);
+    if(d){
+      sg_image_data im_data={0};
+      im_data.subimage[0][0].ptr=d;
+      im_data.subimage[0][0].size=nb_bg_w*nb_bg_h*4;
+      sg_image_desc desc={
+        .type=SG_IMAGETYPE_2D,.render_target=false,.width=nb_bg_w,.height=nb_bg_h,
+        .num_slices=1,.num_mipmaps=1,.usage=SG_USAGE_IMMUTABLE,.pixel_format=SG_PIXELFORMAT_RGBA8,
+        .sample_count=1,.min_filter=SG_FILTER_LINEAR,.mag_filter=SG_FILTER_LINEAR,
+        .wrap_u=SG_WRAP_CLAMP_TO_EDGE,.wrap_v=SG_WRAP_CLAMP_TO_EDGE,
+        .border_color=SG_BORDERCOLOR_OPAQUE_BLACK,.data=im_data,
+      };
+      nb_bg_img=sg_make_image(&desc);
+      free(d);
+    }
+  }
+  if(nb_bg_img.id==0||nb_bg_img.id==SG_INVALID_ID)return;
+  ImVec2 ds=igGetIO()->DisplaySize;
+  if(ds.x<=1||ds.y<=1)return;
+  ImDrawList* dl=igGetBackgroundDrawList();
+  float ia=(float)nb_bg_w/(float)nb_bg_h, ta=ds.x/ds.y;
+  ImVec2 uv0={0,0}, uv1={1,1};
+  if(ta>ia){ float vis=ia/ta; uv0.y=(1.f-vis)*0.30f; uv1.y=uv0.y+vis; }
+  else     { float vis=ta/ia; uv0.x=(1.f-vis)*0.50f; uv1.x=uv0.x+vis; }
+  ImDrawList_AddImage(dl,(ImTextureID)(uintptr_t)nb_bg_img.id,(ImVec2){0,0},ds,uv0,uv1,0xFFFFFFFF);
+  ImDrawList_AddRectFilled(dl,(ImVec2){0,0},ds,NB_COL(6,10,20,70),0,ImDrawCornerFlags_None);
+  float t=(float)se_time();
+  // grosses, schwaches Sharingan als Wasserzeichen
+  float wr=(ds.x<ds.y?ds.x:ds.y)*0.34f;
+  nb_draw_sharingan(dl,(ImVec2){ds.x-wr*0.55f,ds.y-wr*0.60f},wr,t*0.35f,0.16f);
+  // Raben
+  for(int i=0;i<6;++i){
+    float sp=18.f+i*7.f;
+    float x=fmodf(t*sp+i*173.f,ds.x+120.f)-60.f;
+    float y=ds.y*(0.08f+0.085f*i)+sinf(t*0.9f+i)*12.f;
+    float f=sinf(t*7.f+i*1.7f);
+    float k=0.8f+0.12f*(float)(i%3);
+    ImU32 col=NB_COL(6,8,14,225);
+    ImDrawList_AddTriangleFilled(dl,(ImVec2){x-4*k,y},(ImVec2){x+8*k,y+2*k},(ImVec2){x-13*k,y+4*k},col);
+    ImDrawList_AddTriangleFilled(dl,(ImVec2){x-2*k,y},(ImVec2){x+4*k,y},(ImVec2){x-7*k,y-14*k*f},col);
+    ImDrawList_AddTriangleFilled(dl,(ImVec2){x-2*k,y},(ImVec2){x+4*k,y},(ImVec2){x+8*k,y-12*k*f},col);
+  }
+}
+static void nb_draw_banner(void){
+  if(!nb_logo_data){
+    int c=0;
+    nb_logo_data=stbi_load_from_memory(nicoboy_logo_png,(int)nicoboy_logo_png_len,&nb_logo_w,&nb_logo_h,&c,4);
+  }
+  float dpi=se_dpi_scale();
+  ImVec2 p, avail;
+  igGetCursorScreenPos(&p);
+  igGetContentRegionAvail(&avail);
+  float h=104.f, pad=10.f;
+  ImDrawList* dl=igGetWindowDrawList();
+  nb_glass_card(dl,p,(ImVec2){p.x+avail.x,p.y+h},20.f);
+  // Feuer-Streifen unten
+  ImDrawList_AddRectFilledMultiColor(dl,(ImVec2){p.x+20.f,p.y+h-6.f},(ImVec2){p.x+avail.x-20.f,p.y+h-2.f},
+    NB_COL(255,184,26,255),NB_COL(255,77,30,255),NB_COL(214,38,57,255),NB_COL(255,140,26,255));
+  if(nb_logo_data){
+    float sz=h-2*pad-6.f;
+    se_draw_image(nb_logo_data,nb_logo_w,nb_logo_h,(p.x+pad)*dpi,(p.y+pad)*dpi,sz*dpi,sz*dpi,true);
+  }
+  float tx=p.x+h+2.f;
+  igSetCursorScreenPos((ImVec2){tx,p.y+12.f});
+  igPushStyleColorVec4(ImGuiCol_Text,(ImVec4){1.00f,0.60f,0.24f,1.f});
+  igSetWindowFontScale(1.8f);
+  igText("NicoBoy");
+  igSetWindowFontScale(1.f);
+  igPopStyleColor(1);
+  igSetCursorScreenPos((ImVec2){tx,p.y+56.f});
+  igPushStyleColorVec4(ImGuiCol_Text,(ImVec4){0.95f,0.45f,0.50f,1.f});
+  igText("Uchiha Itachi Edition");
+  igPopStyleColor(1);
+  igSetCursorScreenPos((ImVec2){tx,p.y+74.f});
+  igPushStyleColorVec4(ImGuiCol_Text,(ImVec4){0.78f,0.82f,0.90f,0.9f});
+  igText("GB  |  GBC  |  GBA  |  DS");
+  igPopStyleColor(1);
+  // drehendes Sharingan rechts
+  float R=26.f;
+  if(avail.x>h+R*2+40.f)
+    nb_draw_sharingan(dl,(ImVec2){p.x+avail.x-R-18.f,p.y+(h-6.f)*0.5f},R,(float)se_time()*2.2f,1.f);
+  igSetCursorScreenPos(p);
+  igDummy((ImVec2){avail.x,h+6.f});
+}
 void se_load_rom_overlay(bool visible){
   if(visible==false)return;
+  if(!emu_state.rom_loaded)nb_draw_backdrop();
   ImVec2 w_pos, w_size;
   igGetWindowPos(&w_pos);
   igGetWindowSize(&w_size);
@@ -5165,6 +5288,9 @@ void se_load_rom_overlay(bool visible){
   igBegin(se_localize_and_cache(ICON_FK_FILE_O " Load Game"),(gui_state.settings.hardcore_mode&&gui_state.ra_logged_in)?NULL:&gui_state.overlay_open,ImGuiWindowFlags_NoCollapse|ImGuiWindowFlags_NoResize);
   
   float list_y_off = igGetWindowHeight(); 
+  float nb_cy0 = igGetCursorPosY();
+  nb_draw_banner();
+  float nb_cy1 = igGetCursorPosY();
   int x, y, w,  h;
   ImVec2 win_p,win_max;
   igGetWindowContentRegionMin(&win_p);
@@ -5174,6 +5300,7 @@ void se_load_rom_overlay(bool visible){
   w = win_max.x-win_p.x;
   h = win_max.y-win_p.y;
   y+=w_pos.y;
+  y+=(int)(nb_cy1-nb_cy0);
   x+=w_pos.x;
   const char * prompt1 = "Load ROM from file (%s)";
   const char * prompt2= "You can also drag & drop a ROM to load it";
@@ -5629,29 +5756,76 @@ void se_imgui_theme()
     colors[ImGuiCol_CheckMark]              = (ImVec4){r,g,b,a};
   }
 
+  // ---- NicoBoy Design: Glassmorphism (Milchglas, helle Raender, Feuer/Sharingan-Akzente) ----
+  {
+    const ImVec4 accent ={1.00f,0.36f,0.16f,1.00f};
+    const ImVec4 gold   ={1.00f,0.72f,0.12f,1.00f};
+    const ImVec4 sharin ={0.84f,0.15f,0.22f,1.00f};
+    colors[ImGuiCol_Text]                 =(ImVec4){0.96f,0.97f,1.00f,1.00f};
+    colors[ImGuiCol_TextDisabled]         =(ImVec4){0.70f,0.74f,0.84f,0.65f};
+    colors[ImGuiCol_WindowBg]             =(ImVec4){0.05f,0.08f,0.15f,0.78f};
+    colors[ImGuiCol_ChildBg]              =(ImVec4){1.00f,1.00f,1.00f,0.05f};
+    colors[ImGuiCol_PopupBg]              =(ImVec4){0.07f,0.10f,0.19f,0.88f};
+    colors[ImGuiCol_MenuBarBg]            =(ImVec4){0.05f,0.08f,0.15f,0.70f};
+    colors[ImGuiCol_Border]               =(ImVec4){1.00f,1.00f,1.00f,0.20f};
+    colors[ImGuiCol_BorderShadow]         =(ImVec4){0.00f,0.00f,0.00f,0.30f};
+    colors[ImGuiCol_FrameBg]              =(ImVec4){1.00f,1.00f,1.00f,0.07f};
+    colors[ImGuiCol_FrameBgHovered]       =(ImVec4){1.00f,1.00f,1.00f,0.14f};
+    colors[ImGuiCol_FrameBgActive]        =(ImVec4){1.00f,1.00f,1.00f,0.22f};
+    colors[ImGuiCol_TitleBg]              =(ImVec4){0.03f,0.05f,0.10f,0.60f};
+    colors[ImGuiCol_TitleBgActive]        =(ImVec4){0.84f,0.15f,0.22f,0.55f};
+    colors[ImGuiCol_TitleBgCollapsed]     =(ImVec4){0.03f,0.05f,0.10f,0.60f};
+    colors[ImGuiCol_ScrollbarBg]          =(ImVec4){0.00f,0.00f,0.00f,0.20f};
+    colors[ImGuiCol_ScrollbarGrab]        =(ImVec4){1.00f,1.00f,1.00f,0.28f};
+    colors[ImGuiCol_ScrollbarGrabHovered] =(ImVec4){1.00f,0.46f,0.22f,0.70f};
+    colors[ImGuiCol_ScrollbarGrabActive]  =accent;
+    colors[ImGuiCol_CheckMark]            =gold;
+    colors[ImGuiCol_SliderGrab]           =accent;
+    colors[ImGuiCol_SliderGrabActive]     =gold;
+    colors[ImGuiCol_Button]               =(ImVec4){1.00f,1.00f,1.00f,0.10f};
+    colors[ImGuiCol_ButtonHovered]        =(ImVec4){1.00f,1.00f,1.00f,0.20f};
+    colors[ImGuiCol_ButtonActive]         =(ImVec4){1.00f,0.36f,0.16f,0.85f};
+    colors[ImGuiCol_Header]               =(ImVec4){1.00f,1.00f,1.00f,0.08f};
+    colors[ImGuiCol_HeaderHovered]        =(ImVec4){1.00f,1.00f,1.00f,0.16f};
+    colors[ImGuiCol_HeaderActive]         =(ImVec4){0.84f,0.15f,0.22f,0.60f};
+    colors[ImGuiCol_Separator]            =(ImVec4){1.00f,1.00f,1.00f,0.14f};
+    colors[ImGuiCol_SeparatorHovered]     =(ImVec4){1.00f,0.46f,0.22f,0.80f};
+    colors[ImGuiCol_SeparatorActive]      =accent;
+    colors[ImGuiCol_Tab]                  =(ImVec4){1.00f,1.00f,1.00f,0.07f};
+    colors[ImGuiCol_TabHovered]           =(ImVec4){1.00f,0.46f,0.22f,0.70f};
+    colors[ImGuiCol_TabActive]            =sharin;
+    colors[ImGuiCol_PlotLines]            =gold;
+    colors[ImGuiCol_PlotHistogram]        =accent;
+    colors[ImGuiCol_TextSelectedBg]       =(ImVec4){0.84f,0.15f,0.22f,0.45f};
+    colors[ImGuiCol_NavHighlight]         =gold;
+    colors[ImGuiCol_NavWindowingHighlight]=(ImVec4){1.00f,0.72f,0.12f,0.70f};
+    colors[ImGuiCol_NavWindowingDimBg]    =(ImVec4){0.00f,0.00f,0.00f,0.50f};
+    colors[ImGuiCol_ModalWindowDimBg]     =(ImVec4){0.00f,0.00f,0.00f,0.55f};
+  }
+
   ImGuiStyle* style = igGetStyle();
-  style->WindowPadding                     = (ImVec2){8.00f, 8.00f};
-  style->FramePadding                      = (ImVec2){5.00f, 2.00f};
+  style->WindowPadding                     = (ImVec2){12.00f, 12.00f};
+  style->FramePadding                      = (ImVec2){8.00f, 5.00f};
   //style->CellPadding                       = (ImVec2){6.00f, 6.00f};
-  style->ItemSpacing                       = (ImVec2){6.00f, 6.00f};
+  style->ItemSpacing                       = (ImVec2){8.00f, 8.00f};
   //style->ItemInnerSpacing                  = (ImVec2){6.00f, 6.00f};
   style->TouchExtraPadding                 = (ImVec2){2.00f, 4.00f};
   style->IndentSpacing                     = 25;
-  style->ScrollbarSize                     = 15;
-  style->GrabMinSize                       = 10;
+  style->ScrollbarSize                     = 16;
+  style->GrabMinSize                       = 14;
   style->WindowBorderSize                  = 0;
-  style->ChildBorderSize                   = 0;
+  style->ChildBorderSize                   = 1;
   style->PopupBorderSize                   = 1;
-  style->FrameBorderSize                   = 0;
+  style->FrameBorderSize                   = 1;
   style->TabBorderSize                     = 0;
   style->WindowRounding                    = 0;
-  style->ChildRounding                     = 4;
-  style->FrameRounding                     = 1;
-  style->PopupRounding                     = 0;
-  style->ScrollbarRounding                 = 2;
+  style->ChildRounding                     = 14;
+  style->FrameRounding                     = 10;
+  style->PopupRounding                     = 14;
+  style->ScrollbarRounding                 = 10;
   style->GrabRounding                      = 100;
   style->LogSliderDeadzone                 = 4;
-  style->TabRounding                       = 4;
+  style->TabRounding                       = 10;
   style->ButtonTextAlign = (ImVec2){0.5,0.5};
 }
 #if defined(EMSCRIPTEN)

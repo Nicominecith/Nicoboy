@@ -1,5 +1,5 @@
-#ifndef SKYEMU_HTTPS
-#define SKYEMU_HTTPS 1
+#ifndef NICOBOY_HTTPS
+#define NICOBOY_HTTPS 1
 
 #ifdef __cplusplus
 extern "C" {

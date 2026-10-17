@@ -6,7 +6,7 @@ This package was generated with [RealFaviconGenerator](https://realfavicongenera
 
 To install this package:
 
-Extract this package in <code>&lt;web site&gt;/SkyEmu/</code>. If your site is <code>http://www.example.com</code>, you should be able to access a file named <code>http://www.example.com/SkyEmu/favicon.ico</code>.
+Extract this package in <code>&lt;web site&gt;/NicoBoy/</code>. If your site is <code>http://www.example.com</code>, you should be able to access a file named <code>http://www.example.com/NicoBoy/favicon.ico</code>.
 
 Insert the following code in the `head` section of your pages:
 
@@ -16,8 +16,8 @@ Insert the following code in the `head` section of your pages:
     <link rel="manifest" href="/site.webmanifest?v=1">
     <link rel="mask-icon" href="/safari-pinned-tab.svg?v=1" color="#759091">
     <link rel="shortcut icon" href="/favicon.ico?v=1">
-    <meta name="apple-mobile-web-app-title" content="SkyEmu">
-    <meta name="application-name" content="SkyEmu">
+    <meta name="apple-mobile-web-app-title" content="NicoBoy">
+    <meta name="application-name" content="NicoBoy">
     <meta name="msapplication-TileColor" content="#759091">
     <meta name="msapplication-config" content="/browserconfig.xml?v=1">
     <meta name="theme-color" content="#759091">

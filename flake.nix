@@ -15,8 +15,8 @@
           type = "app";
           program =
             if pkgs.stdenv.isDarwin then
-              "${package}/Applications/SkyEmu.app/Contents/MacOS/SkyEmu"
-            else "${package}/bin/SkyEmu";
+              "${package}/Applications/NicoBoy.app/Contents/MacOS/NicoBoy"
+            else "${package}/bin/NicoBoy";
         };
       });
 }
