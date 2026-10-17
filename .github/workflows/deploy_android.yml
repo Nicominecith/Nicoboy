@@ -15,12 +15,12 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
       - name: Install SDK parts
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platforms;android-33" "build-tools;33.0.2" "ndk;22.1.7171670" "cmake;3.18.1"
+          export SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          ls "$ANDROID_HOME"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" "platforms;android-33" "build-tools;33.0.2" "ndk;22.1.7171670" "cmake;3.18.1"
       - name: Build APK
         run: |
           cd tools/android_project
